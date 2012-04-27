@@ -1,0 +1,19 @@
+## USER IP BANNING
+<Limit GET POST>
+ order allow,deny
+ deny from 213.229.68.54
+ deny from 194.96.227.39
+ deny from 2.50.201.181
+ deny from 50.57.190.97
+ deny from 50.57.68.10
+ allow from all
+</Limit>
+
+## GRANT ACCESS FOR ADMIN PANEL
+<Files admin.php>
+  order deny,allow
+  deny from all
+  allow from 76.72.15.40
+  allow from 82.199.110.70
+</Files>
+
