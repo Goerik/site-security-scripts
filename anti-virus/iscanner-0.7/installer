@@ -1,0 +1,148 @@
+#!/usr/bin/env ruby
+#
+# iScanner System Installer / Uninstaller
+#
+# Copyright (C) 2010  Abedalmohimen Alagha <abdo@isecur1ty.org>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+%w(fileutils optparse ostruct).each do |gem|
+	require gem
+end
+
+class Installer
+	def initialize(args)
+		@install_dir = '/etc/iscanner'
+		@status = String.new
+
+		@opts = OptionParser.new do |opts|
+			opts.banner = "Usage: #{$0} [options]"
+			opts.separator ""
+			opts.separator "Specific options:"
+			opts.on('-i', '--install', 'Install iScanner') do
+				@status = 'install'
+			end
+			opts.on('-u', '--uninstall', 'Uninstall iScanner') do
+				@status = 'uninstall'
+			end
+			opts.on('-d', '--directory [PATH]', 'Installation directory') do |directory|
+				unless directory.nil?
+					directory += '/' unless directory[directory.size - 1].chr.eql?('/')
+					directory += 'iscanner' unless directory.include?('iscanner')
+					@install_dir = directory
+				end
+			end
+			opts.on('-h', '--help', 'Show this message') do
+				puts opts
+				exit
+			end
+			opts.separator ""
+			opts.parse!(args)
+		end
+	end
+
+	def banner(type)
+		puts
+		puts "Starting iScanner #{type} on [#{ENV['HOSTNAME']}] at (#{Time.now.ctime})"
+		puts "Copyright (C) 2010 iSecur1ty <http://iscanner.isecur1ty.org>"
+		puts
+	end
+
+	def start
+		case @status
+			when 'install'
+				banner('Installer')
+				check_root(@status)
+				install_iscanner
+			when 'uninstall'
+				banner('Uninstaller')
+				check_root(@status)
+				uninstall_iscanner
+		else
+			puts @opts
+		end
+		exit
+	end
+
+	def check_root(type)
+		unless Process.uid.eql?(0)
+			puts "[!] Error: You must be root to #{type} iScanner."
+			ic_exit
+		end
+	end
+
+	def check_installation
+		puts "[*] Checking '#{@install_dir}'..."
+		sleep 1
+		unless File.exist?("#{@install_dir}/iscanner")
+			puts "[*] iScanner is not installed on this server."
+			ic_exit
+		end
+	end
+
+	def copy_files
+		Dir.mkdir(@install_dir) unless File.exist?(@install_dir)
+		Dir["#{File.dirname(__FILE__)}/**/*"].each do |file|
+			FileUtils.cp_r(file, "#{@install_dir}/#{file}")
+		end
+		FileUtils.chmod(0755, "#{@install_dir}/iscanner")
+		FileUtils.chmod(0755, "#{@install_dir}/installer")
+	end
+
+	def remove_files
+		FileUtils.rm_r(@install_dir) if File.exist?(@install_dir)
+	end
+
+	def install_iscanner
+		puts "[*] Installing iScanner in '#{@install_dir}', please wait..."
+		sleep 1
+		if File.exist?("#{@install_dir}/iscanner")
+			print "[*] iScanner is already installed, do you want to reinstall it? [Y/n]: "
+			answer = gets.downcase
+			if answer.chomp.eql?("y") or answer.eql?("\n")
+				remove_files
+				copy_files
+			else
+				ic_exit
+			end
+		else
+			copy_files
+		end
+		puts "[*] iScanner has been installed succesfully."
+		puts
+	end
+
+	def uninstall_iscanner
+		check_installation
+		print "[*] Are you sure you want to uninstall iScanner? [y/N]: "
+		if gets.chomp.eql?("y")
+			puts "[*] Uninstalling iScanner, please wail..."
+			sleep 1
+			remove_files
+			puts "[*] iScanner has been uninstalled succesfully."
+			puts
+		else
+			ic_exit
+		end
+	end
+
+	def ic_exit
+		puts
+		abort("[*] Existing iScanner Installer...")
+	end
+end
+
+installer = Installer.new(ARGV)
+installer.start

@@ -1,0 +1,80 @@
+--- 
+- version: 0.2.0
+- date: 22/Sep/2010
+- copyright: iSecur1ty <http://iscanner.isecur1ty.org>
+- - 6.0
+  - (<script.+?KLiHKYfJYrNAaLJ.+?JcHHoKmHL.+?K5JANHYL.*?<\/script>)
+  - Known obfuscated Javascript malware.
+  - MU:RE
+- - 6.1
+  - (<script.+?function\spL.+?7syavpwey.+?oVdVyV.*?<\/script>)
+  - Known obfuscated Javascript malware.
+  - MU:RE
+- - 6.2
+  - (<script.+?YxfRQZcJr.+?fwmuagM.+?ryoADKY.*?<\/script>)
+  - Known obfuscated Javascript malware.
+  - MU:RE
+- - 6.3
+  - (<script.+?function\syJ.+?hjeIaIdI.+?bGiKlAiKtHyH.*?<\/script>)
+  - Known obfuscated Javascript malware.
+  - MU:RE
+- - 2.1
+  - (<script.+?eval\s*\(\s*unescape.+?\).*?<\/script>)
+  - Javascript 'eval' and 'unescape' functions detected, possible obfuscated malicious code.
+  - MU:RE
+- - 2.4
+  - (<script.+?eval\s*\(\s*function.+?\).*?<\/script>)
+  - Javascript 'eval' and 'function' detected, possible obfuscated malicious code.
+  - MU:RE
+- - 2.0
+  - (<script.+?unescape\s*\(.+?\).*?<\/script>)
+  - Javascript 'unescape' function detected, possible obfuscated malicious code.
+  - MU:RE
+- - 2.2
+  - (<script.+?<iframe.+?(?:visibility\s*:\s*hidden|display\s*:\s*none|style\s*=\s*['\"]?hidden|\s(?:width|height)\s*=\s*['\"]?[01][\'"\s]).*?>.+?<\/script>)
+  - Javascript hidden iframe tag detected.
+  - MU:RE
+- - 2.3
+  - (<script.+?src\s*=\s*['\"]?(?:ht|f)tp.+?>(?:.*?<\/script>)?)
+  - Javascript code from remote source detected.
+  - LN:LO
+- - 1.0
+  - (<iframe.+?(?:visibility\s*:\s*hidden|display\s*:\s*none|style\s*=\s*['\"]?hidden|\s(?:width|height)\s*=\s*['\"]?[01][\'"\s]).+?<\/iframe>)
+  - Hidden iframe tag detected.
+  - MU:RE
+- - 1.1
+  - (<iframe.+?(?:visibility\s*:\s*hidden|display\s*:\s*none|style\s*=\s*['\"]?hidden|\s(?:width|height)\s*=\s*['\"]?[01][\'"\s]).*?>)
+  - Incomplete hidden iframe tag detected.
+  - LN:RE
+- - 3.0
+  - (<object.+?classid.+?target.*?>.*?<\/object>)
+  - ActiveX object 'target' detected, possible malicious code to exploit IE vulnerability.
+  - MU:RE
+- - 3.1
+  - (<script.+?vbscript.*?>.+?<\/script>)
+  - VBScript code detected, sometimes used to exploit IE vulnerability.
+  - MU:RE
+- - 5.5
+  - ((?:print|echo)\s*\(\s*gzinflate\s*\(.+?\)\s*\)\s*;)
+  - PHP 'print/echo' and 'gzinflate' functions detected, possible encoded malicious code.
+  - MU:LO
+- - 5.4
+  - ((?:print|echo)\s*\(\s*base64_decode\s*\(.+?\)\s*\)\s*;)
+  - PHP 'print/echo' and 'base64_decode' functions detected, possible encoded malicious code.
+  - MU:LO
+- - 5.3
+  - (eval\s*\(\s*gzinflate\s*\(.+?\)\s*\)\s*;)
+  - PHP 'eval' and 'gzinflate' functions detected, possible encoded malicious code.
+  - MU:RE
+- - 5.2
+  - (eval\s*\(\s*base64_decode\s*\(.+?\)\s*\)\s*;)
+  - PHP 'eval' and 'base64_decode' functions detected, possible encoded malicious code.
+  - MU:LO
+- - 5.1
+  - (gzinflate\s*\(\s*base64_decode\s*\(.+?\)\s*\)\s*;)
+  - PHP 'gzinflate' and 'base64_decode' functions detected, possible encoded malicious code.
+  - MU:LO
+- - 4.0
+  - ((?:shellcode|(?:LPORT|EXITFUNC|Encoder)=))
+  - Dangerous word detected, CHECK THE FILE!
+  - LN:RE

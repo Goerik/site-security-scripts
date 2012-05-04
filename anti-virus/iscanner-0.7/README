@@ -1,0 +1,166 @@
+= Introduction:
+
+    iScanner is free open source tool lets you detect and remove malicious codes
+    and web pages malwares from your Linux/Unix server easily and automatically.
+
+    This tool is programmed by iSecur1ty using Ruby programming language and
+    it's released under the terms of GNU Affero General Public License 3.0.
+
+    Copyright (C) 2010 iSecur1ty <http://iscanner.isecur1ty.org>
+
+
+= Installation:
+
+    First of all make sure that Ruby is installed in your server.
+    # ruby -v
+
+	If Ruby wasn't installed, you can simply use yum package manager:
+    # yum install ruby
+
+    Or apt-get if you were using Ubuntu or any other Debian based distributions:
+    # apt-get install ruby 
+
+    Otherwise you can download Ruby and install it on your machine from:
+    # http://www.ruby-lang.org/en/downloads/
+
+    iScanner does not require any external libraries and you do not need to
+    install the program to be able to use it but we included installer you can
+    use it to install and uninstall iScanner from your server using the
+    following command:
+    # ./installer -i
+
+    This command will install iScanner in the default directory '/etc/iscanner'
+    but you can change the installation directory using the '-d' option:
+    # ./installer -i -d /opt/iscanner
+
+    And easly uninstall iScanner by removing the the folder or using the
+    following command:
+    # ./installer -u
+
+
+= Usage:
+
+    -R		Use this option to scan a remote web page / website.
+    # iscanner -R http://example.com
+
+    -F		Use this option to scan a specific file.
+    # iscanner -F /home/user/file.php
+
+    -f		Use this option to scan a specific directory.
+    # iscanner -f /home/user
+
+    -e      This option will allow you to select specific file extensions for
+            scanning, by default iScanner will scan [htm, html, php, js] if you
+            wanted to scan other or specific extensions only:
+    # iscanner -f /home/user -e htm:html
+
+    -d      By default iScanner will load the latest version of signatures
+            database in the folder, if wanted to use older or modified version
+            of the database:
+    # iscanner -f /home/user -d database.db
+
+    -M      Using this option allows you to specify malware code and iScanner
+            will automatically generate regex signature for it then scan the
+            files / website you want (incase you wanted to scan for specific
+            code or undetected malware!)
+    # iscanner -M /home/user/malware_code.txt -f /home/user
+    # iscanner -M /home/user/malware_code.txt -R http://example.com
+
+    -o      Using this option will allow you to choose the name of the infected
+            log file. If this option wasn't used the name of the infected log
+            file will be in this format "infected-[TIME]-[DATE].log", if you
+            wanted to select other name:
+    # iscanner -f /home/user -o user.log
+
+    -m      With this option you can tell iScanner to send a copy of the
+            infected log to selected email address:
+    # iscanner -f /home/user -m email@example.com
+
+    -c      This option will clean the infected files by removing the malicious
+            code only without deleting the infected files. Before using this
+            option make sure to check the infected log to know what exactly
+            iScanner is going to remove from each infected file.
+    # iscanner -c infected.log
+
+    -b      If you used this option iScanner will take backup from the infected
+            files before cleaning it. You can find backup of the cleaned files
+            in a folder have the name "backup-[TIME]-[DATE]".
+    # iscanner -b -c infected.log
+
+    -r      If you used the previous option when cleanning the infected log and
+            something went wrong, use this option to restore the files from the
+            backup directory.
+    # iscanner -r backup/
+
+    -a      Using this option will make iScanner clean every infected file
+            automatically. This option could be dangerous if you didn't scan
+            the folder before and you don't know the results.
+    # iscanner -f /home/user -a
+
+    -D      This option will make iScanner run in the debug mode, the option
+            will be useful if you had problem while running iScanner.
+    # iscanner -f /home/user -D
+
+    -q      If you don't want to see any output from iScanner you can enable
+            this option to make the program run in the quit mode.
+    # iscanner -f /home/user -q
+
+    -s      This option allows you to send malicious file to iScanner's
+            developers for analyses. This will help us improve the signatures
+            database and keeping it updated.
+    # iscanner -s /home/user/malicious_file.html
+
+    -U      With this option you can update iScanner and the signatures
+            database to the latest version easily.
+    # iscanner -U
+
+    -u      This option will update the signatures database only instead of
+            updating the whole program.
+    # iscanner -u
+
+    -v      This option will print iScanner's version and release date with
+            the database version and it's release date too.
+    # iscanner -v
+
+    -h      This option will show the help message.
+    # iscanner -h
+
+
+= Database signatures
+
+- - 0.0
+  - (REGULAR EXPRESSION)
+  - Signature comment.
+  - <MU|LN>:<RE|LO>
+
+    * The first line is the signature id '0.0'.
+
+    * Options:
+        MU --> Multiline regular expression.
+        LN --> One line regular expression.
+        RE --> Use the regular expression in remote (-R) and local scan.
+        LO --> Use the regular expression in local scan only.
+
+
+= Tips & Tricks:
+
+    * You can easily modify the signatures database and have your own customized
+      version by adding, removing or changing the regular expressions in the
+      database.
+
+    * If several websites on your server has been hacked, you can add signature
+      to iScanner's database to make it locate all the hacked index pages in
+      your server.
+
+    * You can add iScanner to the cron jobs to make it scan you server every 24
+      hours and send the infected log to your email address.
+
+    * It is possible to configure your ftp server (PureFTPd for example) to make
+      iScanner scan all the uploaded files by the users and send email alert if
+      malicious file has been detected.
+
+
+= Contact:
+
+    If you found bug, have suggestion or wanted to help us improve iScanner feel
+    free to contact us: projects@isecur1ty.org

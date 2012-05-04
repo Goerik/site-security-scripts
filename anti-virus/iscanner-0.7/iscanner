@@ -1,0 +1,610 @@
+#!/usr/bin/env ruby
+#
+# iScanner lets you detect and remove malicious codes and web pages malwares.
+#
+# Copyright (C) 2010  Abedalmohimen Alagha <abdo@isecur1ty.org>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+%w(open-uri yaml fileutils base64 digest/md5 net/smtp optparse ostruct).each do |gem|
+	require gem
+end
+
+class IScanner
+	VERSION = '0.7'
+	RELEASE_DATE = '22/Sep/2010'
+
+	def initialize(args)
+		@hostname = ENV['HOSTNAME']
+		@hostname = 'localhost' if @hostname.nil? or @hostname.empty?
+		@arguments = args
+		@options = OpenStruct.new
+		@options.database_name = Dir["#{File.dirname(__FILE__)}/signatures-*.db"].sort.last
+		@options.exts = ['htm', 'html', 'php', 'js']
+		@options.output = "infected-#{Time.now.strftime("%H:%M:%S-%d.%b")}.log"
+		@options.log = nil
+		@options.url = nil
+		@options.file = nil
+		@options.malware = nil
+		@options.folder = nil
+		@options.email = nil
+		@options.backup = false
+		@options.backup_folder = "backup-#{Time.now.strftime("%H:%M:%S-%d.%b")}"
+		@options.quiet = false
+		@options.auto_clean = false
+		@options.debug = false
+		@files, @infected, @unscanned, @errors = Array.new, Array.new, Array.new, Array.new
+		trap("INT") { is_exit }
+	end
+
+	def banner
+		puts
+		puts "Starting iScanner #{VERSION} on [#{@hostname}] at (#{Time.now.ctime})"
+		puts "Copyright (C) 2010 iSecur1ty <http://iscanner.isecur1ty.org>"
+		puts
+	end
+
+	def parse_args
+		@opts = OptionParser.new do |opts|
+			opts.banner = "Usage: #{$0} [options]"
+			opts.separator ""
+			opts.separator "Specific options:"
+			opts.on('-R', '--remote [URL]', 'Scan remote web page / website') do |url|
+				@options.url = url unless url.nil? or url.empty?
+			end
+			opts.on('-F', '--file [FILE]', 'Scan a specific file') do |file|
+				@options.file = file unless file.nil? or file.empty?
+			end
+			opts.on('-f', '--folder [DIRECTORY]', 'Scan a specific folder') do |folder|
+				unless folder.nil? or folder.empty?
+					if folder.eql?('/')
+						@options.folder = folder
+					else
+						folder[folder.size - 1] = '' if folder[folder.size - 1].chr.eql?('/')
+						@options.folder = folder
+					end
+				end
+			end
+			opts.on('-e', '--extensions [ext:ext:ext]', 'The extensions you want to scan') do |exts|
+				@options.exts = exts.downcase.split(":").uniq unless exts.nil? or exts.empty?
+			end
+			opts.on('-d', '--database [DATABASE]', 'Select database file') do |database|
+				@options.database_name = database
+			end
+			opts.on('-M', '--malware [FILE]', 'Scan for a specific malware code') do |malware|
+				@options.malware = malware unless malware.nil? or malware.empty?
+			end
+			opts.on('-o', '--output [LOG-FILE]', 'Output log file') do |output|
+				@options.output = output unless output.nil? or output.empty?
+			end
+			opts.on('-m', '--email [EMAIL-ADDRESS]', 'Send report to email address') do |email|
+				@options.email = email unless email.nil? or email.empty?
+			end
+			opts.on('-c', '--clean [LOG-FILE]', 'Clean infected files') do |log|
+				@options.log = log unless log.nil? or log.empty?
+			end
+			opts.on('-b', '--backup', 'Backup infected files') do
+				@options.backup = true
+				Dir.mkdir(@options.backup_folder) unless File.exist?(@options.backup_folder)
+			end
+			opts.on('-r', '--restore [BACKUP-FOLDER]', 'Restore the infected files') do |folder|
+				unless folder.nil? or folder.empty?
+					folder[folder.size - 1] = '' if folder[folder.size - 1].chr.eql?('/')
+					restore_infected_warning(folder)
+					begin
+						restore_infected(folder)
+					rescue Exception => e
+						is_error("iScanner could not restore the infected files!", "#{e.class.to_s}, #{e.message}")
+						puts e.backtrace if @options.debug
+					end
+					is_exit
+				end
+			end
+			opts.on('-a', '--auto-clean', 'Enable auto clean mode') do
+				@options.auto_clean = true
+			end
+			opts.on('-D', '--debug', 'Enable debugging mode') do
+				@options.debug = true
+			end
+			opts.on('-q', '--quiet', 'Enable quiet mode') do
+				@options.quiet = true
+			end
+			opts.on('-s', '--send [MALICIOUS-FILE]', 'Send malicious file for analyses') do |file|
+				begin
+					load_database
+					send_malicious_file(file)
+				rescue Interrupt, SignalException, SystemExit
+					exit
+				rescue Exception => e
+					is_error("iScanner could not send the selected file.", "#{e.class.to_s}, #{e.message}")
+					puts e.backtrace if @options.debug
+				end
+				is_exit
+			end
+			opts.on('-U', '--update', 'Update iScanner to latest version') do
+				load_database
+				begin
+					puts "[*] Connecting to the server, please wait..."
+					is_update
+					is_update_db
+					is_update_msg
+				rescue Exception => e
+					is_error("iScanner could not update it self, please try again later.", "#{e.class.to_s}, #{e.message}")
+					puts e.backtrace if @options.debug
+				end
+				is_exit
+			end
+			opts.on('-u', '--update-db', 'Update signatures database only') do
+				load_database
+				begin
+					puts "[*] Connecting to the server, please wait..."
+					is_update_db
+					is_update_msg
+				rescue Exception => e
+					is_error("iScanner could not update the database, please try again later.", "#{e.class.to_s}, #{e.message}")
+					puts e.backtrace if @options.debug
+				end
+				is_exit
+			end
+			opts.on('-v', '--version', 'Print version number') do
+				load_database
+				print_version
+				exit
+			end
+			opts.on('-h', '--help', 'Show this message') do
+				puts opts
+				exit
+			end
+			opts.separator ""
+			opts.separator "Example: #{$0} -f /home -m email@example.com -o infected.log"
+			opts.separator "         #{$0} -b -c infected.log"
+			opts.separator ""
+			opts.parse!(@arguments)
+		end
+	end
+
+	def check_system
+		if RUBY_PLATFORM =~ /(mswin|mingw)/
+			puts "[*] The current version of iScanner is not compatible with Microsoft Windows"
+			puts "    We are planing to fix this issue in the near future."
+			is_exit
+		end
+	end
+
+	def load_database
+		begin
+			@database = OpenStruct.new
+			@database.content = YAML::load(File.read(@options.database_name))
+			@database.version = @database.content[0]['version']
+			@database.date = @database.content[1]['date']
+			0.upto(2) do |i|
+				@database.content.delete_at(0)
+			end
+		rescue Exception => e
+			is_error("iScanner could not load the signatures database.", "#{e.class.to_s}, #{e.message}")
+			puts e.backtrace if @options.debug
+		end
+		if @options.malware
+			begin
+				malware = File.read(@options.malware).chomp
+				signature = Regexp.escape(malware)
+				@database.content.insert(0, ['0.0', "(#{signature})", 'Specifed malware code.', 'LN'])
+			rescue Exception => e
+				is_error("iScanner could not read the specifed malware code.", "#{e.class.to_s}, #{e.message}")
+				puts e.backtrace if @options.debug
+			end
+		end
+	end
+
+	def start
+		@start_time = Time.now
+		banner unless @options.quiet
+		check_system
+		parse_args
+		load_database
+		is_exit if @database.version.eql?('0.0.0')
+		auto_clean_warning if @options.auto_clean
+		if @options.log
+			begin
+				clean_infected_files
+				send_email_report unless @options.email.nil?
+			rescue Exception => e
+				is_error("iScanner could not clean the infected files properly.", "#{e.class.to_s}, #{e.message}")
+				puts e.backtrace if @options.debug
+			end
+			is_exit
+		elsif @options.url
+			unless @options.url.include?("http://") or @options.url.include?("https://") or @options.url.include?("ftp://")
+				@options.url = "http://" + @options.url
+			end
+			puts "[*] Opening \"#{@options.url}\", please wait..." unless @options.quiet
+			begin
+				webpage = open(@options.url, "User-Agent" => "iScanner #{VERSION}").read
+				file = "#{File.dirname(__FILE__)}/#{@options.url.split('/')[2]}-#{Time.now.strftime("%H:%M:%S-%d.%b")}.html"
+				File.open(file, 'w') do |f|
+					f.write(webpage)
+				end
+				puts "[*] Scanning \"#{File.basename(file)}\". (db:#{@database.version} - #{@database.date})\n\n" unless @options.quiet
+				scan(file) unless @infected.include?(@options.file)
+			rescue Interrupt, SignalException, SystemExit
+				exit
+			rescue Exception => e
+				@unscanned.insert(0, file)
+				write_error_log("Unscanned file: \"#{file}\". (#{e.class.to_s}, #{e.message})")
+				puts e.backtrace if @options.debug
+			end
+		elsif @options.file
+			puts "[*] Scanning \"#{@options.file}\". (db:#{@database.version} - #{@database.date})\n\n" unless @options.quiet
+			sleep 1
+			begin
+				scan(@options.file) unless @infected.include?(@options.file)
+			rescue Interrupt, SignalException, SystemExit
+				exit
+			rescue Exception => e
+				@unscanned.insert(0, @options.file)
+				write_error_log("Unscanned file: \"#{@options.file}\". (#{e.class.to_s}, #{e.message})")
+				puts e.backtrace if @options.debug
+			end
+		elsif @options.folder
+			puts "[*] Locating files (extentions: #{@options.exts.join(', ')}). please wait..." unless @options.quiet
+			@files = locate_files
+			if @files.size > 0
+				puts "[*] Scanning [#{@files.size}] files found. (db:#{@database.version} - #{@database.date})" unless @options.quiet
+				puts unless @options.quiet
+				sleep 1
+			else
+				puts "[*] iScanner could not find any files in the specified direcotry."
+				is_exit
+			end
+			@files.each do |file|
+				begin
+					scan(file) unless @infected.include?(file)
+				rescue Interrupt, SignalException, SystemExit
+					exit
+				rescue Exception => e
+					@unscanned.insert(0, file)
+					write_error_log("Unscanned file: \"#{file}\". (#{e.class.to_s}, #{e.message})")
+					puts e.backtrace if @options.debug
+				end
+			end
+		else
+			puts @opts
+			exit
+		end
+		if (@infected.size > 0)
+			File.open(@options.output, 'a') do |f|
+				f.puts
+				f.puts "Generated by iScanner #{VERSION} (db:#{@database.version}) in #{Time.now.ctime}"
+				f.puts "Copyright (C) 2010 iSecur1ty <http://iscanner.isecur1ty.org>"
+			end
+			begin
+				send_email_report unless @options.email.nil?
+			rescue Exception => e
+				is_error("Sending report to \"#{@options.email}\" has been faild.", "#{e.class.to_s}, #{e.message}")
+				puts e.backtrace if @options.debug
+			end
+		end
+		print_unscanned unless @unscanned.empty?
+		print_result unless @options.quiet
+	end
+
+	def locate_files
+		exts = @options.exts.join(',') + ',' + @options.exts.join(',').upcase
+		files = Dir[@options.folder + "/**/*.{#{exts}}"]
+		files.delete_if do |file|
+			file.nil? or file.empty?
+		end
+		return files
+	end
+
+	def scan(file)
+		content = File.read(file)
+		content = check_encoding(content) if content.methods.include?(:encode)
+		puts "Scanning: #{file}" if @options.debug
+		@database.content.each do |record|
+			multiline, remotefile = record[3].split(':')
+			unless @infected.include?(file)
+				if RUBY_VERSION >= '1.9'
+					if multiline.eql?('MU')
+						regex = Regexp.new(record[1], Regexp::IGNORECASE + Regexp::MULTILINE + 16)
+					else
+						regex = Regexp.new(record[1], Regexp::IGNORECASE + 16)
+					end
+				else
+					if multiline.eql?('MU')
+						regex = Regexp.new(record[1], Regexp::IGNORECASE + Regexp::MULTILINE)
+					else
+						regex = Regexp.new(record[1], Regexp::IGNORECASE)
+					end
+				end
+				next if @options.url and remotefile.eql?('LO')
+				puts "          - #{record[1]}" if @options.debug
+				if regex.match(content)
+					matched = regex.match(content).to_s
+					is_log(:file => file, :signature_id => record[0], :signature => record[1], :description => record[2], :matched_data => matched)
+					clean_infected(file, matched) if @options.auto_clean
+				end
+			end
+		end
+		puts if @options.debug
+	end
+
+	def check_encoding(content)
+		if content.valid_encoding?
+			content = content.encode('UTF-8', {:undef => :replace, :invalid => :replace}) unless content.encoding.name.eql?('UTF-8')
+		else
+			content = content.force_encoding('BINARY').encode('UTF-8', {:undef => :replace, :invalid => :replace})
+		end
+		return content
+	end
+
+	def is_log(args)
+		@infected.insert(0, args[:file])
+		write_infected_log(args[:file], args[:signature_id], args[:signature], args[:description], args[:matched_data])
+		puts if @options.debug
+		print_scanned(args[:file], args[:signature_id], args[:signature], args[:description]) unless @options.quiet
+	end
+
+	def is_error(message, error)
+		@errors.insert(0, message)
+		if error.nil?
+			write_error_log(message)
+		else
+			write_error_log("#{message} (#{error})")
+		end
+		puts "[-] Error: #{message}"
+		puts "           #{error}" unless error.nil?
+	end
+
+	def print_version
+		puts "iScanner version [#{VERSION}] released on (#{RELEASE_DATE})"
+		puts "Database \"#{File.basename(@options.database_name)}\" version [#{@database.version}] released on (#{@database.date})" unless @database.version.eql?('0.0.0')
+		puts
+	end
+
+	def print_result
+		puts
+		puts "[*] Scan finished in (#{(Time.now - @start_time).to_i}) seconds, [#{@infected.size}] suspicious files found."
+		puts "    Please check \"#{@options.output}\" for details." unless @infected.empty?
+		puts "    Please check \"runtime-error.log\" for runtime errors!" unless @errors.empty? and @unscanned.empty?
+	end
+
+	def print_unscanned
+		puts "[-] iScanner did not scan the following [#{@unscanned.size}] files:"
+		@unscanned.each do |unscanned|
+			puts "    - #{unscanned}"
+		end
+	end
+
+	def print_scanned(file, signature_id, signature, description)
+		puts "[!] Scanned file: #{file}"
+		puts "    Signature:    [id:#{signature_id}] #{signature}"
+		puts "    Description:  #{description}"
+		puts
+	end
+
+	def write_infected_log(file, signature_id, signature, description, matched_data)
+		File.open(@options.output, 'a') do |f|
+			f.puts "#{file}"
+			f.puts "[#{signature_id}] #{signature}"
+			f.puts "#{description}"
+			f.puts "-" * 75
+			f.puts "#{matched_data}"
+			f.puts "=" * 75
+		end
+	end
+
+	def write_error_log(message)
+		@database.version = '0.0.0' if @database.version.nil?
+		@database.date = '00/00/00' if @database.date.nil?
+		File.open('runtime-error.log', 'a') do |f|
+			f.puts "#{Time.now.ctime} | #{VERSION} - #{@database.version} | #{message}"
+		end
+	end
+
+	def send_email_report
+		puts "[*] Sending report to \"#{@options.email}\", please wait..."
+		if @options.log
+			report = @options.log
+		else
+			report = @options.output
+		end
+		report_content = File.read(report)
+		email = "From: iScanner #{VERSION} <iScanner@#{@hostname}>\n" +
+				"To: #{@options.email} <#{@options.email}>\n" +
+				"Subject: iScanner #{VERSION} report for #{@hostname}\n\n" +
+				"Hostname: #{@hostname}\n"
+		email+=	"File: #{@options.file}\n" if @options.file
+		email+=	"Directory: #{@options.folder}\n" +
+				"Extensions: #{@options.exts.join(', ')}\n" if @options.folder
+		email+= "Log file: #{report}\n\n\n" +
+				"#{report_content}\n"
+		Net::SMTP.start('localhost') do |smtp|
+			smtp.send_message(email, "iScanner@#{@hostname}", @options.email)
+		end
+		puts "[*] The email report has been sent successfully."
+	end
+
+	def send_malicious_file(file)
+		email_address = 'projects@isecur1ty.org'
+		malicious_file = File.read(file)
+		send_malicious_file_warning(file)
+		puts "[*] Sending \"#{file}\", please wait..."
+		sleep 1
+		size = File.size(file).to_s
+		md5sum = Digest::MD5.hexdigest(malicious_file)
+		content = Base64.encode64(malicious_file)
+		email = "From: iScanner #{VERSION} <iScanner@#{@hostname}>\n" +
+				"To: #{email_address} <#{email_address}>\n" +
+				"Subject: File analyses request\n\n" +
+				"Name: #{file}\n" +
+				"Size: #{size}\n" +
+				"md5sum: #{md5sum}\n\n" +
+				"#{content}\n\n" +
+				"Sent from iScanner #{VERSION} (db:#{@database.version} - #{@database.date}) in #{Time.now.ctime}\n" +
+				"Copyright (C) 2010 iSecur1ty <http://iscanner.isecur1ty.org>"
+		Net::SMTP.start('localhost') do |smtp|
+			smtp.send_message(email, "iScanner@#{@hostname}", email_address)
+		end
+		puts "[*] File sent successfully. Thank you for helping us improve iScanner!"
+	end
+
+	def send_malicious_file_warning(file)
+		puts "[*] THIS WILL SEND \"#{file}\""
+		print "    TO THE DEVELOPERS FOR ANALYSES, DO YOU WANT TO CONTINUE? [Y/n]: "
+		answer = gets.downcase.chomp
+		if answer.eql?('n')
+			is_exit
+		end
+		puts
+	end
+
+	def auto_clean_warning
+		puts "[*] USE AUTO-CLEAN OPTION '-a' ONLY IF YOU KNOW WHAT YOU ARE DOING"
+		print "    ARE YOU SURE YOU WANT TO CONTINUE? [y/N]: "
+		answer = gets.downcase.chomp
+		unless answer.eql?("y")
+			is_exit
+		end
+		puts
+	end
+
+	def restore_infected_warning(folder)
+		puts "[*] THIS OPTION WILL RESTORE ALL THE INFECTED FILES IN \"#{folder}\""
+		print "    ARE YOU SURE YOU WANT TO CONTINUE? [y/N]: "
+		answer = gets.downcase.chomp
+		unless answer.eql?("y")
+			is_exit
+		end
+		puts
+	end
+
+	def clean_infected(file, matched)
+		puts "    - #{file}" if @options.debug
+		backup_infected(file) if @options.backup
+		buffer = File.read(file).gsub(matched, '')
+		File.open(file, 'w') do |f|
+			f.write(buffer)
+		end
+	end
+
+	def clean_infected_files
+		infected_files = File.open(@options.log).read.split("#{'='*75}\n")
+		infected_files.delete(infected_files.last) if infected_files.last.include?("Generated by iScanner") or infected_files.last.eql?("\n")
+		unless infected_files.size > 0
+			puts "[-] There is no infected files in \"#{@options.log}\"."
+			is_exit
+		end
+		puts "[*] Cleaning infected files in \"#{@options.log}\", please wait..."
+		infected_files.each do |infected|
+			infected = infected.split("#{'-'*75}\n")
+			file = infected[0].split("\n")[0]
+			matched = infected[1].chomp
+			clean_infected(file, matched) unless file.nil? or matched.nil?
+		end
+		puts if @options.debug
+		puts "[*] iScanner successfully cleaned [#{infected_files.size}] infected files in this server."
+		puts "    You can find a backup of the cleaned files in \"#{@options.backup_folder}\"." if @options.backup
+	end
+
+	def backup_infected(file)
+		md5sum = Digest::MD5.hexdigest(File.read(file))
+		file_name = "#{file.split('/').last}::#{md5sum}"
+		FileUtils.cp(file,"#{@options.backup_folder}/#{file_name}")
+		File.open("#{@options.backup_folder}/directories", 'a') do |f|
+			f.puts "#{file}::#{md5sum}"
+		end
+	end
+
+	def restore_infected(folder)
+		puts "[*] Restoring infected files, please wait..."
+		unless File.exist?("#{folder}/directories")
+			is_error("The directories list is not existed in \"#{folder}\"", nil)
+			is_exit
+		end
+		files = Dir["#{folder}/*.*"]
+		directories = File.readlines("#{folder}/directories")
+		files.each do |file|
+			md5sum = file.split('::')[1]
+			directories.each do |d|
+				FileUtils.cp("#{file}", "#{d.split('::')[0]}") if d.include?(md5sum)
+			end
+		end
+		if (files.size > 0)
+			puts "[*] iScanner successfully restored [#{files.size}] files."
+		else
+			puts "[-] The folder \"#{folder}\" is empty!"
+		end
+	end
+
+	def is_update
+		version = open("http://iscanner.isecur1ty.org/update/version","User-Agent" => "iScanner #{VERSION}").read
+		if (version > VERSION)
+			files = open("http://iscanner.isecur1ty.org/update/files","User-Agent" => "iScanner #{VERSION}").read
+			unless files.nil? or files.empty?
+				files.split(':').each do |file|
+					if file.include?('/')
+						dir = file.gsub(file.split('/').last, '')
+						Dir.mkdir("#{File.dirname(__FILE__)}/#{dir}") unless File.exist?("#{File.dirname(__FILE__)}/#{dir}")
+					end
+					FileUtils.cp($0, "#{$0}-#{VERSION}") if file.eql?('iscanner')
+					file_content = open("http://iscanner.isecur1ty.org/update/download/#{file}", "User-Agent" => "iScanner #{VERSION}").read
+					File.open("#{File.dirname(__FILE__)}/#{file}", 'w') do |f|
+						f.write(file_content)
+					end
+				end
+				FileUtils.chmod(0755, 'iscanner')
+				FileUtils.chmod(0755, 'installer')
+				puts "[*] iScanner successfully updated to version [#{version}]."
+				puts "    Check \"CHANGELOG\" to know the new features."
+			else
+				is_error("iScanner could not download the files list, please try again later.", nil)
+			end
+		else
+			puts "[*] iScanner version [#{VERSION}] is up to date."
+		end
+	end
+
+	def is_update_db
+		version = open("http://iscanner.isecur1ty.org/update-db/version", "User-Agent" => "iScanner #{VERSION}").read
+		if (version > @database.version)
+			database = open("http://iscanner.isecur1ty.org/update-db/download", "User-Agent" => "iScanner #{VERSION}").read
+			File.open("signatures-#{version}.db", 'w') do |f|
+				f.write(database)
+			end
+			puts "[*] iScanner's database successfully updated to version [#{version}]."
+		else
+			puts "[*] iScanner's database version [#{@database.version}] is up to date."
+		end
+	end
+
+	def is_update_msg
+		message = open("http://iscanner.isecur1ty.org/update/message", "User-Agent" => "iScanner #{VERSION}").read
+		unless message.nil? or message.empty?
+			puts
+			puts message
+		end
+	end
+
+	def is_exit
+		puts
+		puts "[-] Exiting iScanner..."
+		sleep 1
+		exit
+	end
+end
+
+scanner = IScanner.new(ARGV)
+scanner.start

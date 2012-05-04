@@ -1,0 +1,37 @@
+0.7    [22/09/2010] - Various fixes.
+                      Windows incompatiblity message.
+                      README file and database scheme updated.
+                      Signatures database 0.2.0.
+
+0.6    [06/06/2010] - Scanning remote web page / website added.
+                      Specify malware to be removed option added.
+                      Sending malicious file for analyzes feature added.
+                      Installer directory option fixed.
+                      Signatures database 0.1.7.
+
+0.5    [08/05/2010] - Ruby 1.9 compatibility.
+                      An installer has been added.
+                      Scan one file option added.
+                      Log format error fixed.
+                      Improve README file and fix some typos.
+                      Signatures database 0.1.6.
+
+0.4    [10/03/2010] - Debug mode added.
+                      README file added.
+                      Improve error handling and runtime error log.
+                      Fix problem in sending email report.
+                      Fix database loading issue if iScanner used out side it's folder.
+                      Signatures database 0.1.5.
+
+0.3    [18/02/2010] - Backup and restore system added.
+                      Basic email report feature added.
+                      Fix database update if the signatures file wasn't exist.
+                      Fix some typos and input handling (again!).
+
+0.2    [07/02/2010] - Error messages with runtime error log.
+                      Improve how the tool update it self.
+                      Better preformance in locating files.
+                      Fix some typos and input handling.
+                      Updating the program '-U' now will update the database too.
+
+0.1    [31/01/2010] - iScanner initial release.
