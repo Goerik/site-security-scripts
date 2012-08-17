@@ -1,0 +1,28 @@
+<VirtualHost 127.0.0.1:8080>
+   DocumentRoot /home/[user]/www
+   ServerAdmin admin@[domain]
+   ServerName [domain]
+   ServerAlias www.[domain]
+   ErrorLog /home/[user]/logs/apache_error.log
+   CustomLog /home/[user]/logs/apache_access.log combined
+<Directory />
+#Order Deny,Allow
+#Deny from all
+Options -ExecCGI -Indexes -Includes +FollowSymLinks
+AllowOverride All
+  <Limit GET POST>
+  Order allow,deny
+  Allow from all
+  </Limit>
+  <LimitExcept GET POST>
+  Order deny,allow
+  Deny from all
+  </LimitExcept>
+</Directory>
+
+AssignUserId www-data [user]
+
+php_admin_value open_basedir "/home/[user]/:."
+php_admin_value upload_tmp_dir "/home/[user]/tmp"
+php_admin_value session.save_path "/home/[user]/tmp"
+</VirtualHost>
