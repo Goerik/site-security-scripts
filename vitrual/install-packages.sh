@@ -12,12 +12,27 @@ aptitude install apache2-mpm-itk libapache2-mod-rpaf php5 libapache2-mod-php5 ph
 # Установка nginx
 aptitude install nginx-naxsi
 
+# Удаляем модуль php5-suhosin
+aptitude purge php5-suhosin
+
+# Включаем mod_rewrite
+a2enmod rewrite
+
+apache2ctl restart
+
+rm /etc/apache2/sites-enabled/*
+rm /etc/nginx/sites-enabled/*
+
 # Апач перевесить на 127.0.0.1:8080
-# /etc/apache2/ports.conf
+sed -i -e 's/80/8080/g' -e 's/NameVirtualHost \*/NameVirtualHost 127.0.0.1/g' /etc/apache2/ports.conf
+apache2ctl restart
+service nginx restart
 
 #Конфигурирование сервера MySQL
 #копируем конфиг, т. к. в перконе он по умолчанию отсутствует
-# cp /usr/share/mysql/my-medium.cnf /etc/mysql/my.cnf
+cp /usr/share/mysql/my-medium.cnf /etc/mysql/my.cnf
+service mysql restart
+
 #Добавляем кодировку по-умолчанию UTF-8
 #В файл /etc/mysql/my.cnf вставляем строки 
 #в секцию [mysqld]
