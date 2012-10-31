@@ -1,0 +1,29 @@
+
+server {
+	listen   9191;
+	server_name  "";
+
+	access_log  /var/log/nginx/maintenance.access.log;
+	error_log  /var/log/nginx/maintenance.error.log;
+
+	root /var/www/maintenance;
+	
+	index index.html;
+
+	log_not_found  on;
+
+	gzip on;
+	gzip_min_length 1100;
+	gzip_buffers 16 8k;
+	gzip_comp_level 3;
+	gzip_types text/plain application/xml application/x-javascript text/css;
+
+	# redirect server error pages to the static page /50x.html
+	#
+	error_page   404 500 502 503 504  /index.html;
+
+	# deny access to .htaccess files and subversion files
+	location ~ /\.ht { deny  all; }
+	location ~ /.svn/ { deny all; }
+}
+

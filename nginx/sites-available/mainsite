@@ -1,0 +1,18 @@
+   upstream backend {
+      server   127.0.0.1:9000;
+      server   127.0.0.1:9191 down;
+    }
+
+ server {
+    listen 80;
+    listen 81;
+    server_name subdomain.somesite.org;
+
+    access_log  /var/log/nginx/mainsite.access.log;
+    error_log  /var/log/nginx/mainsite.error.log;
+
+    location / {
+      proxy_pass http://backend;
+    }
+  }
+
