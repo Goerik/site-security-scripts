@@ -1,0 +1,4 @@
+<Files ~ "\.(php|inc)$">
+deny from all
+</Files>
+
