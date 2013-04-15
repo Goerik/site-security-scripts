@@ -54,7 +54,7 @@ echo "/home/${user}/logs/apache*.log {
         endscript
 }" > /etc/logrotate.d/${user}_apache
 
-echo "/home/ru.callcrm/logs/nginx*.log {
+echo "/home/${user}/logs/nginx*.log {
         daily
         missingok
         rotate 7
