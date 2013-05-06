@@ -3,8 +3,6 @@ user="org.example"
 domain="example.org"
 database="orgexample"
 
-cd /root/install-scripts/
-
 sudo useradd ${user} -b /home -m -U -s /bin/bash
 
 # доступы для пользователя по ключу
@@ -40,6 +38,40 @@ sudo ln -s /etc/nginx/sites-available/${user} /etc/nginx/sites-enabled/${user}
 
 sudo apache2ctl graceful
 sudo service nginx reload
+
+# Настройка ротации логов
+echo "/home/${user}/logs/apache*.log {
+        weekly
+        missingok
+        rotate 7
+        compress
+        delaycompress
+        notifempty
+        create 640 root adm
+        sharedscripts
+        postrotate
+                /etc/init.d/apache2 reload > /dev/null
+        endscript
+}" > /etc/logrotate.d/${user}_apache
+
+echo "/home/${user}/logs/nginx*.log {
+        daily
+        missingok
+        rotate 7
+        compress
+        delaycompress
+        notifempty
+        create 0640 www-data adm
+        sharedscripts
+        prerotate
+                if [ -d /etc/logrotate.d/httpd-prerotate ]; then \
+                        run-parts /etc/logrotate.d/httpd-prerotate; \
+                fi; \
+        endscript
+        postrotate
+                [ ! -f /var/run/nginx.pid ] || kill -USR1 `cat /var/run/nginx.pid`
+        endscript
+}" > /etc/logrotate.d/${user}_nginx
 
 # create database
 genpass() { local h x y;h=${1:-14};x=( {a..z} {A..Z} {0..9} );y=$(echo ${x[@]} | tr ' ' '\n' | shuf -n$h | xargs);echo -e "${y// /}"; }
