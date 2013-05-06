@@ -1,3 +1,4 @@
+# ubuntu 12.04 install
 sudo aptitude install -y csync2
 sudo csync2 -k /etc/csync2.cluster.key 
 openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /etc/csync2_ssl_key.pem -out /etc/csync2_ssl_cert.pem

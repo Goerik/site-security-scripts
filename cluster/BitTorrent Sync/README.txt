@@ -1,4 +1,5 @@
 Installation
+# ubuntu 12.04 install
 
 URL: http://labs.bittorrent.com/experiments/sync/get-started.html
 
@@ -14,3 +15,5 @@ chmod 777  /home/cluster/pids
 
 mkdir /var/bt/.sync
 chmod 777 /var/bt/.sync
+
+sudo /usr/lib/insserv/insserv -v /etc/init.d/btsyncd
