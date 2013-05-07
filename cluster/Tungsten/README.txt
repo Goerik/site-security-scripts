@@ -94,3 +94,14 @@ VERBOSE=1 VALIDATE_ONLY=1 ./cookbook/install_all_masters.sh
 sudo ln -s /opt/tungsten/tungsten/tungsten-replicator/bin/replicator /etc/init.d/replicator
 sudo /usr/lib/insserv/insserv -v /etc/init.d/replicator
 
+# configure autoincrement for offline mode in /etc/mysql/my.cnf
+# for 2 node configuration
+
+# first mysql server
+auto_increment_increment = 2
+auto_increment_offset = 1
+
+# second mysql server
+auto_increment_increment = 2
+auto_increment_offset = 2
+
