@@ -4,7 +4,7 @@ server {
 	access_log /home/[user]/logs/nginx_access.log;
 	error_log /home/[user]/logs/nginx_error.log;
 	
-	location ~* \.(jpg|jpeg|gif|png|css|zip|tgz|gz|rar|bz2|doc|xls|exe|pdf|ppt|tar|wav|bmp|rtf|swf|ico|flv|txt|docx|xlsx)$ {
+	location ~* \.(jpg|jpeg|gif|png|css|eot|woff|svg|ttf|js|zip|tgz|gz|rar|bz2|doc|xls|exe|pdf|ppt|tar|wav|bmp|rtf|swf|ico|flv|txt|docx|xlsx)$ {
 		root /home/[user]/www/;
 		index index.html index.php;
 		access_log off;
