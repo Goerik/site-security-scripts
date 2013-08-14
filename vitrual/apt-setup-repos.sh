@@ -6,21 +6,16 @@ sudo gpg -a --export CD2EFD2A | sudo apt-key add -
 
 
 sudo echo '
-deb http://repo.percona.com/apt squeeze main
-deb-src http://repo.percona.com/apt squeeze main
+deb http://repo.percona.com/apt wheezy main
+deb-src http://repo.percona.com/apt wheezy main
 
 ' > /etc/apt/sources.list.d/percona.list
 
 
-sudo echo '
-deb http://mirror.yandex.ru/debian-backports/ squeeze-backports main contrib non-free
-deb-src http://mirror.yandex.ru/debian-backports/ squeeze-backports main contrib non-free
-
-' > /etc/apt/sources.list.d/backports.list
 
 sudo echo '
 Package: *
-Pin: release v=1.0,o=Percona Development Team,n=squeeze,l=percona,c=main
+Pin: release v=1.0,o=Percona Development Team,n=wheezy,l=percona,c=main
 Pin-Priority: 700
 
 ' > /etc/apt/preferences.d/percona
